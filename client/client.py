@@ -2,7 +2,6 @@
 import socket
 import json
 
-
 HOST = "127.0.0.1"
 PORT = 5000
 
@@ -11,57 +10,40 @@ class CancelOperation(Exception):
     pass
 
 
-# -------------------- INPUT FUNCTIONS --------------------
-
 def ask_text(prompt):
     value = input(prompt).strip()
-
     if not value:
         raise CancelOperation
-
     return value
 
 
 def ask_int(prompt):
-    value = ask_text(prompt)
-
     try:
-        return int(value)
+        return int(ask_text(prompt))
     except ValueError:
         raise ValueError("Please enter a valid number.")
 
 
 def ask_float(prompt):
-    value = ask_text(prompt)
-
     try:
-        number = float(value)
-
-        if number <= 0:
+        value = float(ask_text(prompt))
+        if value <= 0:
             raise ValueError
-
-        return number
-
+        return value
     except ValueError:
         raise ValueError("Please enter a valid positive price.")
 
 
-# -------------------- SERVER CONNECTION --------------------
-
 def send_request(request):
     try:
         with socket.create_connection((HOST, PORT), timeout=10) as client:
-            message = json.dumps(request) + "\n"
-            client.sendall(message.encode("utf-8"))
-
+            client.sendall((json.dumps(request) + "\n").encode("utf-8"))
             response_data = b""
 
             while b"\n" not in response_data:
                 chunk = client.recv(4096)
-
                 if not chunk:
                     break
-
                 response_data += chunk
 
             if not response_data:
@@ -70,21 +52,20 @@ def send_request(request):
                     "error": "No response from server."
                 }
 
-            response_line = response_data.split(b"\n", 1)[0]
-            return json.loads(response_line.decode("utf-8"))
+            return json.loads(
+                response_data.split(b"\n", 1)[0].decode("utf-8")
+            )
 
     except ConnectionRefusedError:
         return {
             "success": False,
-            "error": "Cannot connect to server. Start server.py first."
+            "error": "Cannot connect to server."
         }
-
     except socket.timeout:
         return {
             "success": False,
-            "error": "Server connection timed out."
+            "error": "Connection timed out."
         }
-
     except (OSError, json.JSONDecodeError) as error:
         return {
             "success": False,
@@ -92,11 +73,9 @@ def send_request(request):
         }
 
 
-# -------------------- DISPLAY FUNCTIONS --------------------
-
 def format_value(key, value):
     if key in ("daily_price", "total_price"):
-        return f"${float(value):,.2f}"
+        return f"{float(value):,.0f} UZS"
 
     if key == "available":
         return "Available" if value else "Rented"
@@ -116,49 +95,31 @@ def show_table(data):
         print(data)
         return
 
-    if not data:
-        print("\nNo records found.")
-        return
-
     keys = list(data[0].keys())
 
-    formatted_rows = []
+    rows = [
+        [format_value(key, item.get(key, "")) for key in keys]
+        for item in data
+    ]
 
-    for item in data:
-        row = []
-
-        for key in keys:
-            row.append(format_value(key, item.get(key, "")))
-
-        formatted_rows.append(row)
-
-    widths = []
-
-    for index, key in enumerate(keys):
-        max_width = len(key)
-
-        for row in formatted_rows:
-            max_width = max(max_width, len(row[index]))
-
-        widths.append(max_width)
-
-    print()
+    widths = [
+        max(len(key), *(len(row[i]) for row in rows))
+        for i, key in enumerate(keys)
+    ]
 
     header = " | ".join(
-        key.upper().ljust(widths[index])
-        for index, key in enumerate(keys)
+        key.upper().ljust(widths[i])
+        for i, key in enumerate(keys)
     )
 
-    print(header)
+    print("\n" + header)
     print("-" * len(header))
 
-    for row in formatted_rows:
-        print(
-            " | ".join(
-                value.ljust(widths[index])
-                for index, value in enumerate(row)
-            )
-        )
+    for row in rows:
+        print(" | ".join(
+            value.ljust(widths[i])
+            for i, value in enumerate(row)
+        ))
 
 
 def handle_response(response):
@@ -169,213 +130,115 @@ def handle_response(response):
     if response.get("success"):
         print("\nSuccess!")
 
-        data = response.get("data")
-
-        if data is not None:
-            show_table(data)
-
+        if response.get("data") is not None:
+            show_table(response["data"])
     else:
         print("\nError:", response.get("error", "Unknown error."))
 
 
-# -------------------- REQUEST BUILDER --------------------
-
-def build_request(action_number):
-
-    # CARS
-
-    if action_number == 1:
+def build_request(action):
+    if action == 1:
         return {"action": "list_cars"}
 
-    elif action_number == 2:
+    elif action == 2:
         print("\nADD A CAR")
-
-        brand = ask_text("Brand: ")
-        model = ask_text("Model: ")
-        year = ask_int("Year: ")
-        daily_price = ask_float("Daily price (USD): ")
-
         return {
             "action": "add_car",
-            "brand": brand,
-            "model": model,
-            "year": year,
-            "daily_price": daily_price
+            "brand": ask_text("Brand: "),
+            "model": ask_text("Model: "),
+            "year": ask_int("Year: "),
+            "daily_price": ask_float("Daily price (UZS): ")
         }
 
-    elif action_number == 3:
+    elif action == 3:
         print("\nUPDATE A CAR")
-
-        car_id = ask_int("Car ID: ")
-        brand = ask_text("New brand: ")
-        model = ask_text("New model: ")
-        year = ask_int("New year: ")
-        daily_price = ask_float("New daily price (USD): ")
-
         return {
             "action": "update_car",
-            "id": car_id,
-            "brand": brand,
-            "model": model,
-            "year": year,
-            "daily_price": daily_price
+            "id": ask_int("Car ID: "),
+            "brand": ask_text("New brand: "),
+            "model": ask_text("New model: "),
+            "year": ask_int("New year: "),
+            "daily_price": ask_float("New daily price (UZS): ")
         }
 
-    elif action_number == 4:
+    elif action == 4:
         print("\nDELETE A CAR")
-
-        car_id = ask_int("Car ID: ")
-
         return {
             "action": "delete_car",
-            "id": car_id
+            "id": ask_int("Car ID: ")
         }
 
-    # CUSTOMERS
-
-    elif action_number == 5:
+    elif action == 5:
         return {"action": "list_customers"}
 
-    elif action_number == 6:
+    elif action == 6:
         print("\nADD A CUSTOMER")
-
-        name = ask_text("Customer name: ")
-        phone = ask_text("Phone number: ")
-
         return {
             "action": "add_customer",
-            "name": name,
-            "phone": phone
+            "name": ask_text("Customer name: "),
+            "phone": ask_text("Phone number: ")
         }
 
-    elif action_number == 7:
+    elif action == 7:
         print("\nUPDATE A CUSTOMER")
-
-        customer_id = ask_int("Customer ID: ")
-        name = ask_text("New name: ")
-        phone = ask_text("New phone number: ")
-
         return {
             "action": "update_customer",
-            "id": customer_id,
-            "name": name,
-            "phone": phone
+            "id": ask_int("Customer ID: "),
+            "name": ask_text("New name: "),
+            "phone": ask_text("New phone number: ")
         }
 
-    elif action_number == 8:
+    elif action == 8:
         print("\nDELETE A CUSTOMER")
-
-        customer_id = ask_int("Customer ID: ")
-
         return {
             "action": "delete_customer",
-            "id": customer_id
+            "id": ask_int("Customer ID: ")
         }
 
-    # RENTALS
-
-    elif action_number == 9:
+    elif action == 9:
         return {"action": "list_rentals"}
 
-    elif action_number == 10:
+    elif action == 10:
         print("\nRENT A CAR")
-
-        car_id = ask_int("Car ID: ")
-        customer_id = ask_int("Customer ID: ")
-        days = ask_int("Number of days: ")
-
         return {
             "action": "rent_car",
-            "car_id": car_id,
-            "customer_id": customer_id,
-            "days": days
+            "car_id": ask_int("Car ID: "),
+            "customer_id": ask_int("Customer ID: "),
+            "days": ask_int("Number of days: ")
         }
 
-    elif action_number == 11:
+    elif action == 11:
         print("\nRETURN A CAR")
-
-        rental_id = ask_int("Rental ID: ")
-
         return {
             "action": "return_car",
-            "rental_id": rental_id
+            "rental_id": ask_int("Rental ID: ")
         }
 
-    elif action_number == 12:
+    elif action == 12:
         print("\nUPDATE A RENTAL")
-
-        rental_id = ask_int("Rental ID: ")
-        car_id = ask_int("New car ID: ")
-        customer_id = ask_int("New customer ID: ")
-        days = ask_int("New number of days: ")
-
         return {
             "action": "update_rental",
-            "id": rental_id,
-            "car_id": car_id,
-            "customer_id": customer_id,
-            "days": days
+            "id": ask_int("Rental ID: "),
+            "car_id": ask_int("New car ID: "),
+            "customer_id": ask_int("New customer ID: "),
+            "days": ask_int("New number of days: ")
         }
 
-    elif action_number == 13:
+    elif action == 13:
         print("\nDELETE A RENTAL")
-
-        rental_id = ask_int("Rental ID: ")
-
         return {
             "action": "delete_rental",
-            "id": rental_id
+            "id": ask_int("Rental ID: ")
         }
 
     return None
 
 
-# -------------------- SUBMENUS --------------------
-
-def cars_menu():
-    return {
-        "title": "CARS",
-        "options": {
-            "1": (1, "View all cars"),
-            "2": (2, "Add a car"),
-            "3": (3, "Update a car"),
-            "4": (4, "Delete a car")
-        }
-    }
-
-
-def customers_menu():
-    return {
-        "title": "CUSTOMERS",
-        "options": {
-            "1": (5, "View customers"),
-            "2": (6, "Add a customer"),
-            "3": (7, "Update a customer"),
-            "4": (8, "Delete a customer")
-        }
-    }
-
-
-def rentals_menu():
-    return {
-        "title": "RENTALS",
-        "options": {
-            "1": (9, "View rental records"),
-            "2": (10, "Rent a car"),
-            "3": (11, "Return a car"),
-            "4": (12, "Update a rental"),
-            "5": (13, "Delete a rental")
-        }
-    }
-
-
-# -------------------- MENU HANDLING --------------------
-
-def open_submenu(menu):
+def open_submenu(title, options):
     while True:
-        print("\n" + menu["title"])
+        print(f"\n{title}")
 
-        for number, (_, description) in menu["options"].items():
+        for number, (action, description) in options.items():
             print(f"{number}. {description}")
 
         print("\n0. Back")
@@ -384,32 +247,26 @@ def open_submenu(menu):
         choice = input("Select option: ").strip()
 
         if choice == "0":
-            return
+            break
 
-        if choice not in menu["options"]:
-            print("\nInvalid option. Try again.")
+        if choice not in options:
+            print("Invalid option.")
             continue
 
-        action_number = menu["options"][choice][0]
-
         try:
-            request = build_request(action_number)
+            action = options[choice][0]
+            request = build_request(action)
 
             if request:
                 response = send_request(request)
                 handle_response(response)
 
         except CancelOperation:
-            print("\nOperation cancelled. No data was sent to the server.")
+            print("Operation cancelled.")
 
         except ValueError as error:
-            print("\nInvalid input:", error)
+            print("Invalid input:", error)
 
-        except Exception as error:
-            print("\nError:", error)
-
-
-# -------------------- MAIN MENU --------------------
 
 def main():
     while True:
@@ -417,27 +274,42 @@ def main():
         print("1. Cars")
         print("2. Customers")
         print("3. Rentals")
-
         print("\n0. Exit")
         print("-" * 45)
 
         choice = input("Select option: ").strip()
 
         if choice == "0":
-            print("\nGoodbye!")
+            print("Goodbye!")
             break
 
         elif choice == "1":
-            open_submenu(cars_menu())
+            open_submenu("CARS", {
+                "1": (1, "View all cars"),
+                "2": (2, "Add a car"),
+                "3": (3, "Update a car"),
+                "4": (4, "Delete a car")
+            })
 
         elif choice == "2":
-            open_submenu(customers_menu())
+            open_submenu("CUSTOMERS", {
+                "1": (5, "View customers"),
+                "2": (6, "Add a customer"),
+                "3": (7, "Update a customer"),
+                "4": (8, "Delete a customer")
+            })
 
         elif choice == "3":
-            open_submenu(rentals_menu())
+            open_submenu("RENTALS", {
+                "1": (9, "View rental records"),
+                "2": (10, "Rent a car"),
+                "3": (11, "Return a car"),
+                "4": (12, "Update a rental"),
+                "5": (13, "Delete a rental")
+            })
 
         else:
-            print("\nInvalid option. Try again.")
+            print("Invalid option.")
 
 
 if __name__ == "__main__":

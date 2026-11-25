@@ -1,16 +1,66 @@
 import threading
 
-# Shared in-memory data. All client-handler threads use these same lists.
 cars = [
-    {"id": 1, "brand": "Toyota", "model": "Camry", "year": 2023,
-     "daily_price": 50.0, "available": True},
-    {"id": 2, "brand": "Chevrolet", "model": "Malibu", "year": 2022,
-     "daily_price": 40.0, "available": True},
-    {"id": 3, "brand": "BMW", "model": "X5", "year": 2024,
-     "daily_price": 100.0, "available": True},
+    {
+        "id": 1,
+        "brand": "Chevrolet",
+        "model": "Malibu",
+        "year": 2023,
+        "daily_price": 500000,
+        "available": False
+    },
+    {
+        "id": 2,
+        "brand": "Chevrolet",
+        "model": "Gentra",
+        "year": 2022,
+        "daily_price": 400000,
+        "available": True
+    },
+    {
+        "id": 3,
+        "brand": "BYD",
+        "model": "Song Plus",
+        "year": 2024,
+        "daily_price": 700000,
+        "available": True
+    },
+    {
+        "id": 4,
+        "brand": "BYD",
+        "model": "Chazor",
+        "year": 2024,
+        "daily_price": 600000,
+        "available": True
+    }
 ]
-customers = []
-rentals = []
+
+customers = [
+    {
+        "id": 1,
+        "name": "Sanjar",
+        "phone": "935592299"
+    }
+]
+
+rentals = [
+    {
+        "id": 1,
+        "car_id": 1,
+        "customer_id": 1,
+        "days": 3,
+        "total_price": 1500000,
+        "status": "ACTIVE"
+    },
+    {
+        "id": 2,
+        "car_id": 2,
+        "customer_id": 1,
+        "days": 2,
+        "total_price": 800000,
+        "status": "RETURNED"
+    }
+]
 data_lock = threading.RLock()
 
 
