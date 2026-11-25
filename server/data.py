@@ -3,11 +3,11 @@ import threading
 # Shared in-memory data. All client-handler threads use these same lists.
 cars = [
     {"id": 1, "brand": "Toyota", "model": "Camry", "year": 2023,
-     "daily_price": 50000.0, "available": True},
+     "daily_price": 50.0, "available": True},
     {"id": 2, "brand": "Chevrolet", "model": "Malibu", "year": 2022,
-     "daily_price": 40000.0, "available": True},
+     "daily_price": 40.0, "available": True},
     {"id": 3, "brand": "BMW", "model": "X5", "year": 2024,
-     "daily_price": 100000.0, "available": True},
+     "daily_price": 100.0, "available": True},
 ]
 customers = []
 rentals = []
